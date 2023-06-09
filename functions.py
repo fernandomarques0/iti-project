@@ -1,96 +1,72 @@
 import bitarray
+import random
+from collections import defaultdict
 
-def read_file(arg2):
-    with open(arg2, 'rb') as file:
+
+def read_file(filename):
+    with open(filename, 'rb') as file:
         bytes_array = []
         byte = file.read(1)
         while byte:
             value = int.from_bytes(byte, byteorder='little')
             bytes_array.append(value)
             byte = file.read(1)
-    
     return bytes_array
 
-def compressor_lzw(data, N_BITS, dict_length):
-    dictionary = {i.to_bytes(): i for i in range(256)} 
-    message = bitarray.bitarray() 
-
-    flag = 0
-    s = data[0].to_bytes()  
-    for char in range(len(data)):
-
-        if (char+1) >= len(data):
-            if s in dictionary:
-                message.extend(bin(dictionary[s])[2:].zfill(N_BITS))
-                break
-        else:
-            c = data[char+1].to_bytes()
-        
-        seq = [s, c]
-        seq = ''.join([byte.decode('iso-8859-1') for byte in seq])
-
-        if seq.encode() in dictionary:
-            s = seq.encode()
-        else:
-            message.extend(bin(dictionary[s])[2:].zfill(N_BITS))   
-
-            if len(dictionary) == dict_length:
-                flag = 1
-                s = c
-                continue
-            else:
-                dictionary[seq.encode()] = len(dictionary)  
-                
-            s = c
-    if flag:
-        print("Dictionary is full")
-    return message
-    
-
-def descompressor_lzw(data, N_BITS, dict_length):
-    dictionary = {i: i.to_bytes() for i in range(256)} 
-    s = ""
-    msg_decompress = []  
+def compressor_lzw(data, N_BITS, dictionary_length):
+    dictionary = defaultdict(int)
+    message = bitarray.bitarray()
     i = 0
 
-    while i < len(data):
-        cod =  int(data[i:i+N_BITS].to01(), 2)  
-        i += N_BITS 
-
-       
-        if cod in dictionary:
-            current_out = dictionary[cod]   
-        elif cod >= len(dictionary):    
-            if s:
-                current_out = s + s[0].to_bytes() 
+    for x in data:
+        value_bytes = bytes([x[0]])
+        for d in range(len(x)):
+            if d + 1 >= len(x):
+                if value_bytes in dictionary:
+                    message.extend(bin(dictionary[value_bytes])[2:].zfill(N_BITS))
+                    break
             else:
-                current_out = s 
-        else:
-            raise ValueError('Error')
+                c = bytes([x[d+1]])
 
-        msg_decompress.append(current_out) 
-        if s:
-            if len(dictionary) == dict_length: 
-                s = current_out
+            seq = value_bytes + c
+
+            if seq in dictionary:
+                value_bytes = seq
+            else:
+                message.extend(bin(dictionary[value_bytes])[2:].zfill(N_BITS))
+                if len(dictionary) == dictionary_length:
+                    i = 1
+                    value_bytes = c
+                    continue
+                else:
+                    dictionary[seq] = len(dictionary)
+                value_bytes = c
+
+    return dictionary
+
+def test(data, dictionary, N_BITS, dictionary_length):
+    msg = bitarray.bitarray()
+    value_bytes = bytes([data[0]])
+
+    for d in range(len(data)):
+        if d + 1 >= len(data):
+            if value_bytes in dictionary:
+                msg.extend(bin(dictionary[value_bytes])[2:].zfill(N_BITS))
+                break
+        else:
+            c = bytes([data[d+1]])
+
+        seq = value_bytes + c
+
+        if seq in dictionary:
+            value_bytes = seq
+        else:
+            msg.extend(bin(dictionary[value_bytes])[2:].zfill(N_BITS))
+            if len(dictionary) == dictionary_length:
+                value_bytes = c
                 continue
             else:
-                dictionary[len(dictionary)] = s + current_out[0].to_bytes() 
-        
-        s = current_out
-    
-    return msg_decompress
+                dictionary[seq] = len(dictionary)
+            value_bytes = c
 
-def generate_file(data):
-    with open('compressed-file.lzw', 'wb') as f:  
-        f.write(data.tobytes())
-
-def genarate_decompressed_file(data, arg1):
-    if arg1 == 'mp4':
-        with open('descompress-disco.mp4', 'wb') as f: 
-            for b in data:
-                f.write(b)
-
-    elif arg1 == 'txt':
-        new_message = ''.join([b.decode('iso-8859-1') for b in data]) 
-        with open('descompress-file.txt', 'w') as f: 
-            f.write(new_message)
+    return len(msg)

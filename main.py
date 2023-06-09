@@ -1,27 +1,47 @@
-import sys
-import os
-
 from datetime import datetime
 from functions import *
 
-arg1 = sys.argv[1] 
-arg2 = sys.argv[2] 
+K = [9, 10, 11, 12, 13, 14, 15, 16]
+PERSONS = 40
+FACES = 10
+success = []
 
-N_BITS = 9
+for k in K:
+    start = datetime.now()
+    tests = []
+    dictionarys = []
+    quantity_success = 0
 
-dict_length = 2**N_BITS
+    for i in range(PERSONS):
+        img = []
 
-msg = read_file(arg2)
-start = datetime.now()
-msg_compress = compressor_lzw(msg, N_BITS, dict_length)
-end = datetime.now()
-print(f"Tempo de compressão = {end - start}")
+        for j in range(FACES):
+            file = f"orl_faces/s{i+1}/{j+1}.pgm"
+            content = read_file(file)
+            img.append(content)
 
-generate_file(msg_compress)
+        number = random.randint(0, FACES-1)
+        tests.append(img[number])
+        del img[number]
 
-start = datetime.now()
-msg_descompress = descompressor_lzw(msg_compress, N_BITS, dict_length)
-end = datetime.now()
+        dictionarys.append(compressor_lzw(img, k, 2**k))
 
-print(f"Tempo de descompressão = {end - start} \n")
-genarate_decompressed_file(msg_descompress, arg1)
+    for i in range(len(tests)):
+        m_value = float('inf')
+        index = -1
+
+        for j in range(len(dictionarys)):
+            leng = test(tests[i], dictionarys[j], k, 2**k)
+
+            if leng < m_value:
+                m_value = leng
+                index = j
+
+        if i == index:
+            quantity_success += 1
+
+    end = datetime.now()
+    success.append(quantity_success)
+    print(f"K: {k}")
+    print(f"success: {quantity_success}")
+    print(f"Execution time: {end - start}\n")
